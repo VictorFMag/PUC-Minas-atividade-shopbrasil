@@ -63,7 +63,7 @@ persistencia:  criar_tabelas ─► salvar_snapshot (upsert)
 | Pool | `ecommerce_pool` com 2 slots, criado no `airflow-init` |
 | TaskGroups | `ingestao`, `analise`, `persistencia` |
 | PostgresHook + Connection | `PostgresHook(postgres_conn_id="postgres_analytics")` |
-| Idempotência | PK `(data_referencia, categoria)` + `INSERT ... ON CONFLICT DO UPDATE`, numa única transação |
+| Idempotência | PK `(data_referencia, categoria)` + `INSERT ... ON CONFLICT DO UPDATE`, em uma única transação |
 | *Opcional* operador customizado | `ValidarProdutosOperator` valida tipos/campos e falha se >20% inválidos |
 | *Opcional* histórico | `metricas_categoria_historico` em modo append com `data_referencia` e `run_id` |
 | *Opcional* SLA / alerta | `sla=30min` em `salvar_snapshot` + `sla_miss_callback`; `on_failure_callback` simula alerta no log |
