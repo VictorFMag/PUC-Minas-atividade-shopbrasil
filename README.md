@@ -48,25 +48,49 @@ persistencia:  criar_tabelas ─► salvar_snapshot (upsert)
 
 ![Graph View da DAG com os TaskGroups expandidos](docs/graph-view.png)
 
-## Como cada requisito foi atendido
+## Atendimento aos requisitos
 
-| Requisito | Implementação |
-|---|---|
-| TaskFlow API | `@dag` / `@task`; dependências pela chamada das funções |
-| XComs via `return` | só listas pequenas (id, preço, categoria) e métricas agregadas |
-| Linear / fan-out / fan-in | grupos `ingestao` / `calcular_metricas.expand` / `consolidar_metricas` |
-| 06:00 Brasília | `schedule="0 6 * * *"`, `start_date` com `pendulum` em `America/Sao_Paulo`, `catchup=False` |
-| Retry + backoff | `buscar_produtos`: `retries=5`, `retry_exponential_backoff=True`, `max_retry_delay=10min` |
-| try/except + raise | erros de rede/JSON relançados como `AirflowException` para acionar o retry |
-| Callbacks | `on_failure_callback`, `on_retry_callback`, `on_success_callback` na task crítica |
-| Dynamic Task Mapping | `calcular_metricas.partial(produtos=...).expand(categoria=...)` — novas categorias entram sozinhas |
-| Pool | `ecommerce_pool` com 2 slots, criado no `airflow-init` |
-| TaskGroups | `ingestao`, `analise`, `persistencia` |
-| PostgresHook + Connection | `PostgresHook(postgres_conn_id="postgres_analytics")` |
-| Idempotência | PK `(data_referencia, categoria)` + `INSERT ... ON CONFLICT DO UPDATE`, em uma única transação |
-| *Opcional* operador customizado | `ValidarProdutosOperator` valida tipos/campos e falha se >20% inválidos |
-| *Opcional* histórico | `metricas_categoria_historico` em modo append com `data_referencia` e `run_id` |
-| *Opcional* SLA / alerta | `sla=30min` em `salvar_snapshot` + `sla_miss_callback`; `on_failure_callback` simula alerta no log |
+Cada requisito do enunciado está mapeado para a implementação e o arquivo onde pode ser verificado.
+
+### Modelagem e agendamento
+
+| Requisito | Implementação | Onde |
+|---|---|---|
+| TaskFlow API | Tasks declaradas com `@dag` / `@task`; as dependências são inferidas a partir da passagem de retorno entre funções, sem uso de `>>` entre tasks de dados. | `dags/shopbrasil_precos.py` |
+| XComs via `return` | Trafegam apenas payloads enxutos: produtos reduzidos a `id`, `price` e `category` após a validação, e um dicionário de métricas por categoria. | `dags/shopbrasil_precos.py` |
+| Topologias | **Linear** em `ingestao` (buscar → validar → listar categorias); **fan-out** em `calcular_metricas` (uma instância por categoria); **fan-in** em `consolidar_metricas`. | Graph View acima |
+| Agendamento | `schedule="0 6 * * *"` com `start_date` timezone-aware (`pendulum`, `America/Sao_Paulo`) e `catchup=False`, evitando backfill de execuções passadas. | `dags/shopbrasil_precos.py` |
+
+### Resiliência da ingestão
+
+| Requisito | Implementação | Onde |
+|---|---|---|
+| Retry com backoff exponencial | `buscar_produtos` com `retries=5`, `retry_delay=20s`, `retry_exponential_backoff=True` e teto `max_retry_delay=10min`; `execution_timeout=2min` impede execuções presas. | `dags/shopbrasil_precos.py` |
+| Tratamento de erros | `try/except` captura falhas de rede, HTTP e JSON inválido e relança como `AirflowException`, delegando a nova tentativa ao scheduler. Resposta vazia também é tratada como falha. | `dags/shopbrasil_precos.py` |
+| Callbacks de ciclo de vida | `on_success_callback`, `on_retry_callback` e `on_failure_callback` na task crítica, registrando DAG, task, run e número da tentativa. | `dags/shopbrasil/callbacks.py` |
+
+### Processamento paralelo e organização
+
+| Requisito | Implementação | Onde |
+|---|---|---|
+| Dynamic Task Mapping | `calcular_metricas.partial(produtos=...).expand(categoria=...)`: as categorias são descobertas em tempo de execução, portanto novas categorias são processadas sem alteração de código. | `dags/shopbrasil_precos.py` |
+| Pool | `ecommerce_pool` com 2 slots limita a concorrência das instâncias mapeadas; é provisionado automaticamente pelo serviço `airflow-init`. | `docker-compose.yaml` |
+| TaskGroups | Três grupos com responsabilidades distintas: `ingestao`, `analise` e `persistencia`. | `dags/shopbrasil_precos.py` |
+
+### Persistência
+
+| Requisito | Implementação | Onde |
+|---|---|---|
+| PostgresHook + Connection | `PostgresHook(postgres_conn_id="postgres_analytics")`; a Connection é injetada via variável de ambiente `AIRFLOW_CONN_POSTGRES_ANALYTICS`, sem credenciais no código da DAG. | `docker-compose.yaml` |
+| Idempotência | Chave primária `(data_referencia, categoria)` com `INSERT ... ON CONFLICT DO UPDATE`, executado em uma única transação: reprocessar a mesma run atualiza as linhas existentes em vez de duplicá-las. | `dags/shopbrasil/sql.py` |
+
+### Requisitos opcionais
+
+| Requisito | Implementação | Onde |
+|---|---|---|
+| Operador customizado | `ValidarProdutosOperator(BaseOperator)` valida presença e tipo dos campos obrigatórios e rejeita preços negativos; registros inválidos são descartados com log, e a task falha se ultrapassarem 20% do lote. | `plugins/operators/validar_produtos.py` |
+| Tabela de histórico | `metricas_categoria_historico` em modo append, com `data_referencia` e `run_id`, para acompanhar a evolução dos preços ao longo do tempo. | `dags/shopbrasil/sql.py` |
+| SLA / alerta | SLA de 30 minutos em `salvar_snapshot` com `sla_miss_callback`, e `on_failure_callback` que simula o envio de alerta ao canal do time. | `dags/shopbrasil/callbacks.py` |
 
 ## Testar a idempotência
 
