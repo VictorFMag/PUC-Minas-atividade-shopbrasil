@@ -54,7 +54,7 @@ Cada requisito do enunciado está mapeado para a implementação e o arquivo ond
 
 ### Modelagem e agendamento
 
-| Requisito | Implementação | Onde |
+| Requisito | Implementação | Arquivo |
 |---|---|---|
 | TaskFlow API | Tasks declaradas com `@dag` / `@task`; as dependências são inferidas a partir da passagem de retorno entre funções, sem uso de `>>` entre tasks de dados. | `dags/shopbrasil_precos.py` |
 | XComs via `return` | Trafegam apenas payloads enxutos: produtos reduzidos a `id`, `price` e `category` após a validação, e um dicionário de métricas por categoria. | `dags/shopbrasil_precos.py` |
@@ -71,7 +71,7 @@ Cada requisito do enunciado está mapeado para a implementação e o arquivo ond
 
 ### Processamento paralelo e organização
 
-| Requisito | Implementação | Onde |
+| Requisito | Implementação | Arquivo |
 |---|---|---|
 | Dynamic Task Mapping | `calcular_metricas.partial(produtos=...).expand(categoria=...)`: as categorias são descobertas em tempo de execução, portanto novas categorias são processadas sem alteração de código. | `dags/shopbrasil_precos.py` |
 | Pool | `ecommerce_pool` com 2 slots limita a concorrência das instâncias mapeadas; é provisionado automaticamente pelo serviço `airflow-init`. | `docker-compose.yaml` |
@@ -79,14 +79,14 @@ Cada requisito do enunciado está mapeado para a implementação e o arquivo ond
 
 ### Persistência
 
-| Requisito | Implementação | Onde |
+| Requisito | Implementação | Arquivo |
 |---|---|---|
 | PostgresHook + Connection | `PostgresHook(postgres_conn_id="postgres_analytics")`; a Connection é injetada via variável de ambiente `AIRFLOW_CONN_POSTGRES_ANALYTICS`, sem credenciais no código da DAG. | `docker-compose.yaml` |
 | Idempotência | Chave primária `(data_referencia, categoria)` com `INSERT ... ON CONFLICT DO UPDATE`, executado em uma única transação: reprocessar a mesma run atualiza as linhas existentes em vez de duplicá-las. | `dags/shopbrasil/sql.py` |
 
 ### Requisitos opcionais
 
-| Requisito | Implementação | Onde |
+| Requisito | Implementação | Arquivo |
 |---|---|---|
 | Operador customizado | `ValidarProdutosOperator(BaseOperator)` valida presença e tipo dos campos obrigatórios e rejeita preços negativos; registros inválidos são descartados com log, e a task falha se ultrapassarem 20% do lote. | `plugins/operators/validar_produtos.py` |
 | Tabela de histórico | `metricas_categoria_historico` em modo append, com `data_referencia` e `run_id`, para acompanhar a evolução dos preços ao longo do tempo. | `dags/shopbrasil/sql.py` |
