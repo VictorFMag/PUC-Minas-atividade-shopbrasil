@@ -48,7 +48,7 @@ persistencia:  criar_tabelas ─► salvar_snapshot (upsert)
 
 ![Graph View da DAG com os TaskGroups expandidos](docs/graph-view.png)
 
-## Atendimento aos requisitos
+## Requisitos
 
 Cada requisito do enunciado está mapeado para a implementação e o arquivo onde pode ser verificado.
 
