@@ -1,9 +1,9 @@
-# ShopBrasil - Pipeline de preços com Apache Airflow (LocalExecutor)
+# Configuração comum do Airflow
 x-airflow-common: &airflow-common
   image: apache/airflow:2.10.5-python3.11
   env_file:
     - path: .env
-      required: false   # opcional: sobrescreve os valores padrão abaixo
+      required: false
   environment:
     _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
     _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
@@ -15,7 +15,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: America/Sao_Paulo
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
-    # Connection do Airflow para a base analítica (usada pelo PostgresHook)
+    # Connection
     AIRFLOW_CONN_POSTGRES_ANALYTICS: postgresql://analytics:analytics@postgres:5432/analytics
   volumes:
     - ./dags:/opt/airflow/dags
@@ -27,6 +27,7 @@ x-airflow-common: &airflow-common
       condition: service_healthy
 
 services:
+  # Postgres
   postgres:
     image: postgres:16
     environment:
@@ -44,6 +45,7 @@ services:
       retries: 10
     restart: always
 
+  # Inicialização
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
@@ -58,6 +60,7 @@ services:
     user: "0:0"
     restart: "no"
 
+  # Webserver
   airflow-webserver:
     <<: *airflow-common
     command: webserver
@@ -72,6 +75,7 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # Scheduler
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler

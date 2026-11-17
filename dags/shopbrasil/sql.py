@@ -1,5 +1,6 @@
 """SQL da base analítica."""
 
+# Criação das tabelas
 CREATE_TABLES = """
 CREATE TABLE IF NOT EXISTS metricas_categoria (
     data_referencia  DATE          NOT NULL,
@@ -25,7 +26,7 @@ CREATE TABLE IF NOT EXISTS metricas_categoria_historico (
 );
 """
 
-# Idempotente: a chave (data_referencia, categoria) garante uma linha por dia/categoria.
+# Upsert do snapshot
 UPSERT_SNAPSHOT = """
 INSERT INTO metricas_categoria
     (data_referencia, categoria, preco_medio, preco_minimo, preco_maximo, qtd_produtos)
@@ -38,7 +39,7 @@ ON CONFLICT (data_referencia, categoria) DO UPDATE SET
     atualizado_em = now();
 """
 
-# Append: cada execução gera novas linhas para acompanhar a evolução dos preços.
+# Insert do histórico
 INSERT_HISTORICO = """
 INSERT INTO metricas_categoria_historico
     (data_referencia, run_id, categoria, preco_medio, preco_minimo, preco_maximo, qtd_produtos)

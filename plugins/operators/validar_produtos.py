@@ -1,8 +1,10 @@
 """Operador customizado que valida o schema dos produtos da API de catálogo."""
+
+# Imports
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
 
-# Campo -> tipos aceitos
+# Schema
 SCHEMA = {
     "id": (int,),
     "title": (str,),
@@ -11,6 +13,7 @@ SCHEMA = {
 }
 
 
+# Operador
 class ValidarProdutosOperator(BaseOperator):
     """Valida cada produto e devolve apenas os campos usados no processamento.
 
@@ -21,11 +24,13 @@ class ValidarProdutosOperator(BaseOperator):
     template_fields = ("produtos",)
     ui_color = "#ffe9a8"
 
+    # Inicialização
     def __init__(self, *, produtos, max_invalidos_pct: float = 0.2, **kwargs):
         super().__init__(**kwargs)
         self.produtos = produtos
         self.max_invalidos_pct = max_invalidos_pct
 
+    # Erros do produto
     @staticmethod
     def _erros(produto) -> list[str]:
         if not isinstance(produto, dict):
@@ -41,6 +46,7 @@ class ValidarProdutosOperator(BaseOperator):
             erros.append("preço negativo")
         return erros
 
+    # Execução
     def execute(self, context):
         if not self.produtos:
             raise AirflowException("Nenhum produto recebido para validação.")
