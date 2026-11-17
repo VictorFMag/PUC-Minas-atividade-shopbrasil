@@ -94,5 +94,4 @@ Cada requisito do enunciado está mapeado para a implementação e o arquivo ond
 
 ## Testar a idempotência
 
-Rode a DAG, depois use **Clear** na mesma run e rode de novo: `metricas_categoria` continua com
-uma linha por categoria por dia, enquanto o histórico ganha novas linhas.
+Rode a DAG, depois use **Clear** na mesma run e rode de novo: `metricas_categoria` continua com uma linha por categoria por dia, enquanto o histórico ganha novas linhas.
