@@ -23,7 +23,7 @@ from shopbrasil import callbacks, sql
 
 # Configurações
 API_URL = "https://fakestoreapi.com/products"
-POSTGRES_CONN_ID = "postgres_analytics"
+POSTGRES_CONN_ID = "postgres_lab"
 POOL = "ecommerce_pool"
 
 # Argumentos padrão

@@ -12,24 +12,23 @@ Pré-requisito: Docker Desktop (WSL 2) com pelo menos 4 GB de memória.
 docker compose up -d
 ```
 
-- Airflow UI: http://localhost:8080 (usuário `airflow`, senha `airflow`)
+- Airflow UI: http://localhost:8080 (usuário `admin`, senha `admin`)
 - Ative a DAG `shopbrasil_precos_por_categoria` e clique em **Trigger DAG**.
-- Base analítica: `postgres://analytics:analytics@localhost:5432/analytics`
+- Banco de destino: `localhost:5433` (usuário `lab`, senha `lab123`, banco `labdb`)
 
-O serviço `airflow-init` migra o banco, cria o usuário, o **pool `ecommerce_pool` (2 slots)**,
-e a **Connection `postgres_analytics`** vem por variável de ambiente (`AIRFLOW_CONN_POSTGRES_ANALYTICS`).
+O serviço `airflow-init` migra o banco de metadados e cria o usuário, a **Connection `postgres_lab`**
+e o **pool `ecommerce_pool` (2 slots)**.
 
 Consultar os resultados:
 
 ```bash
-docker compose exec postgres psql -U analytics -d analytics -c "SELECT * FROM metricas_categoria ORDER BY data_referencia DESC, categoria;"
+docker compose exec postgres-lab psql -U lab -d labdb -c "SELECT * FROM metricas_categoria ORDER BY data_referencia DESC, categoria;"
 ```
 
 ## Estrutura
 
 ```
-docker-compose.yaml            Airflow 2.10 (LocalExecutor) + Postgres 16
-sql/init-analytics.sql         cria a base/usuário analytics
+docker-compose.yml             Airflow 2.9 (LocalExecutor) + postgres-meta + postgres-lab
 dags/shopbrasil_precos.py      DAG (TaskFlow API)
 dags/shopbrasil/callbacks.py   callbacks de sucesso/retry/falha + alerta simulado e SLA
 dags/shopbrasil/sql.py         DDL, upsert do snapshot e insert do histórico
@@ -74,14 +73,14 @@ Cada requisito do enunciado está mapeado para a implementação e o arquivo ond
 | Requisito | Implementação | Arquivo |
 |---|---|---|
 | Dynamic Task Mapping | `calcular_metricas.partial(produtos=...).expand(categoria=...)`: as categorias são descobertas em tempo de execução, portanto novas categorias são processadas sem alteração de código. | `dags/shopbrasil_precos.py` |
-| Pool | `ecommerce_pool` com 2 slots limita a concorrência das instâncias mapeadas; é provisionado automaticamente pelo serviço `airflow-init`. | `docker-compose.yaml` |
+| Pool | `ecommerce_pool` com 2 slots limita a concorrência das instâncias mapeadas; é provisionado automaticamente pelo serviço `airflow-init`. | `docker-compose.yml` |
 | TaskGroups | Três grupos com responsabilidades distintas: `ingestao`, `analise` e `persistencia`. | `dags/shopbrasil_precos.py` |
 
 ### Persistência
 
 | Requisito | Implementação | Arquivo |
 |---|---|---|
-| PostgresHook + Connection | `PostgresHook(postgres_conn_id="postgres_analytics")`; a Connection é injetada via variável de ambiente `AIRFLOW_CONN_POSTGRES_ANALYTICS`, sem credenciais no código da DAG. | `docker-compose.yaml` |
+| PostgresHook + Connection | `PostgresHook(postgres_conn_id="postgres_lab")`; a Connection é criada pelo `airflow-init`, sem credenciais no código da DAG. | `docker-compose.yml` |
 | Idempotência | Chave primária `(data_referencia, categoria)` com `INSERT ... ON CONFLICT DO UPDATE`, executado em uma única transação: reprocessar a mesma run atualiza as linhas existentes em vez de duplicá-las. | `dags/shopbrasil/sql.py` |
 
 ### Requisitos opcionais
