@@ -8,6 +8,8 @@ quantidade de produtos por categoria e grava em PostgreSQL.
 
 Pré-requisito: Docker Desktop (WSL 2) com pelo menos 4 GB de memória.
 
+Execute o comando abaixo **de dentro da pasta do projeto** (onde está o `docker-compose.yml`):
+
 ```bash
 docker compose up -d
 ```
